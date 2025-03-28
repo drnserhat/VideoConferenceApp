@@ -1,0 +1,104 @@
+@model VideoConferenceApp.Models.Meeting
+
+@{
+    ViewData["Title"] = "Meeting Details";
+    var participants = (IEnumerable<VideoConferenceApp.Models.MeetingParticipant>)ViewBag.Participants;
+}
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Meeting Details</h1>
+        <div>
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Meetings</a>
+            @if (Model.IsActive)
+            {
+                <a asp-action="Join" asp-route-id="@Model.Id" class="btn btn-success">Join Meeting</a>
+            }
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header @(Model.IsActive ? "bg-success text-white" : "bg-secondary text-white")">
+                    <h5 class="card-title mb-0">@Model.Name</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Description</dt>
+                        <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.Description) ? "No description" : Model.Description)</dd>
+                        
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge @(Model.IsActive ? "bg-success" : "bg-secondary")">
+                                @(Model.IsActive ? "Active" : "Ended")
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-sm-4">Created</dt>
+                        <dd class="col-sm-8">@Model.CreatedAt.ToString("g")</dd>
+                        
+                        @if (Model.EndedAt.HasValue)
+                        {
+                            <dt class="col-sm-4">Ended</dt>
+                            <dd class="col-sm-8">@Model.EndedAt.Value.ToString("g")</dd>
+                        }
+                        
+                        <dt class="col-sm-4">Host</dt>
+                        <dd class="col-sm-8">@(Model.User?.FullName ?? Model.User?.UserName ?? "Unknown")</dd>
+                    </dl>
+                </div>
+                <div class="card-footer bg-transparent">
+                    @if (Model.IsActive && Model.UserId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+                    {
+                        <form asp-action="End" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Are you sure you want to end this meeting?');">
+                            <button type="submit" class="btn btn-danger">End Meeting</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Participants</h5>
+                </div>
+                <div class="card-body">
+                    @if (!participants.Any())
+                    {
+                        <p class="text-muted">No participants have joined this meeting yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Joined</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var participant in participants)
+                                    {
+                                        <tr>
+                                            <td>@(participant.User?.FullName ?? participant.User?.UserName ?? "Unknown")</td>
+                                            <td>@participant.JoinedAt.ToString("g")</td>
+                                            <td>
+                                                <span class="badge @(participant.IsActive ? "bg-success" : "bg-secondary")">
+                                                    @(participant.IsActive ? "Active" : "Left")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

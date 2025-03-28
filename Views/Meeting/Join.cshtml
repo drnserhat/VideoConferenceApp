@@ -1,0 +1,272 @@
+@{
+    ViewData["Title"] = "Join Meeting";
+    Layout = "_VideoLayout";
+}
+
+<div class="video-container">
+    <div class="video-header">
+        <h3>@ViewBag.MeetingName</h3>
+        <div class="video-controls">
+            <button id="muteAudio" class="btn btn-outline-light" title="Mute Audio">
+                <i class="bi bi-mic-fill"></i>
+            </button>
+            <button id="muteVideo" class="btn btn-outline-light" title="Turn Off Video">
+                <i class="bi bi-camera-video-fill"></i>
+            </button>
+            <button id="shareScreen" class="btn btn-outline-light" title="Share Screen">
+                <i class="bi bi-display-fill"></i>
+            </button>
+            <form asp-action="Leave" asp-route-id="@ViewBag.MeetingId" method="post">
+                <button type="submit" class="btn btn-danger" title="Leave Meeting">
+                    <i class="bi bi-box-arrow-right"></i> Leave
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row video-grid m-0">
+        <div id="local-stream-container" class="col-md-6 col-lg-4 local-video">
+            <div id="local-video"></div>
+            <div class="video-username">You</div>
+        </div>
+        <div id="remote-streams" class="col-md-6 col-lg-8 d-flex flex-wrap"></div>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        .video-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #18191a;
+            color: white;
+        }
+        .video-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background-color: #252628;
+            border-bottom: 1px solid #333;
+            z-index: 10;
+        }
+        .video-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .video-grid {
+            flex: 1;
+            overflow: auto;
+            padding: 15px;
+        }
+        #local-stream-container {
+            position: relative;
+            height: 250px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        #local-video {
+            width: 100%;
+            height: 100%;
+            background-color: #333;
+            border-radius: 8px;
+        }
+        .video-username {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .remote-stream-container {
+            position: relative;
+            height: 250px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 0 10px 15px 0;
+        }
+        .remote-video {
+            width: 100%;
+            height: 100%;
+            background-color: #333;
+            border-radius: 8px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <script>
+        // Meeting configuration
+        const channelName = "@ViewBag.ChannelName";
+        const token = "@ViewBag.Token";
+        const userId = "@ViewBag.UserId";
+        const appId = "@ViewBag.AppId";
+        let rtcClient = null;
+        let localStream = null;
+        let isMicMuted = false;
+        let isVideoOff = false;
+        let isScreenSharing = false;
+        let screenTrack = null;
+
+        async function initializeAgora() {
+            // Initialize the Agora client
+            rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+            
+            // Listen for remote users joining
+            rtcClient.on("user-published", async (user, mediaType) => {
+                // Subscribe to the remote user
+                await rtcClient.subscribe(user, mediaType);
+                
+                if (mediaType === "video") {
+                    // Add remote video stream to the page
+                    const remoteContainer = document.createElement("div");
+                    remoteContainer.id = `remote-container-${user.uid}`;
+                    remoteContainer.className = "col-md-6 col-lg-4 remote-stream-container";
+                    
+                    const remoteVideo = document.createElement("div");
+                    remoteVideo.id = `remote-video-${user.uid}`;
+                    remoteVideo.className = "remote-video";
+                    
+                    const usernameLabel = document.createElement("div");
+                    usernameLabel.className = "video-username";
+                    usernameLabel.textContent = `User ${user.uid}`;
+                    
+                    remoteContainer.appendChild(remoteVideo);
+                    remoteContainer.appendChild(usernameLabel);
+                    document.getElementById("remote-streams").appendChild(remoteContainer);
+                    
+                    // Play the remote video
+                    user.videoTrack.play(`remote-video-${user.uid}`);
+                }
+                
+                if (mediaType === "audio") {
+                    // Play the remote audio
+                    user.audioTrack.play();
+                }
+            });
+            
+            // Listen for users leaving
+            rtcClient.on("user-unpublished", (user, mediaType) => {
+                if (mediaType === "video") {
+                    // Remove the container for the remote user who left
+                    const remoteContainer = document.getElementById(`remote-container-${user.uid}`);
+                    if (remoteContainer) {
+                        remoteContainer.remove();
+                    }
+                }
+            });
+            
+            try {
+                // Join the channel
+                await rtcClient.join(
+                    appId,
+                    channelName,
+                    token,
+                    userId
+                );
+                
+                // Create local tracks
+                const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+                localStream = { audioTrack, videoTrack };
+                
+                // Play local video stream
+                localStream.videoTrack.play("local-video");
+                
+                // Publish local tracks to the channel
+                await rtcClient.publish([audioTrack, videoTrack]);
+                
+                // Handle mic mute/unmute
+                document.getElementById("muteAudio").addEventListener("click", () => {
+                    if (isMicMuted) {
+                        localStream.audioTrack.setEnabled(true);
+                        document.getElementById("muteAudio").innerHTML = '<i class="bi bi-mic-fill"></i>';
+                    } else {
+                        localStream.audioTrack.setEnabled(false);
+                        document.getElementById("muteAudio").innerHTML = '<i class="bi bi-mic-mute-fill"></i>';
+                    }
+                    isMicMuted = !isMicMuted;
+                });
+                
+                // Handle video on/off
+                document.getElementById("muteVideo").addEventListener("click", () => {
+                    if (isVideoOff) {
+                        localStream.videoTrack.setEnabled(true);
+                        document.getElementById("muteVideo").innerHTML = '<i class="bi bi-camera-video-fill"></i>';
+                    } else {
+                        localStream.videoTrack.setEnabled(false);
+                        document.getElementById("muteVideo").innerHTML = '<i class="bi bi-camera-video-off-fill"></i>';
+                    }
+                    isVideoOff = !isVideoOff;
+                });
+                
+                // Handle screen sharing
+                document.getElementById("shareScreen").addEventListener("click", async () => {
+                    if (!isScreenSharing) {
+                        // Unpublish the video track
+                        await rtcClient.unpublish(localStream.videoTrack);
+                        
+                        // Create a screen track
+                        screenTrack = await AgoraRTC.createScreenVideoTrack();
+                        
+                        // Play the screen track
+                        screenTrack.play("local-video");
+                        
+                        // Publish the screen track
+                        await rtcClient.publish(screenTrack);
+                        
+                        // Update button
+                        document.getElementById("shareScreen").innerHTML = '<i class="bi bi-display"></i>';
+                        isScreenSharing = true;
+                    } else {
+                        // Unpublish the screen track
+                        await rtcClient.unpublish(screenTrack);
+                        
+                        // Stop screen sharing
+                        screenTrack.close();
+                        
+                        // Publish the camera track again
+                        localStream.videoTrack.play("local-video");
+                        await rtcClient.publish(localStream.videoTrack);
+                        
+                        // Update button
+                        document.getElementById("shareScreen").innerHTML = '<i class="bi bi-display-fill"></i>';
+                        isScreenSharing = false;
+                    }
+                });
+                
+            } catch (error) {
+                console.error("Error joining the channel:", error);
+                alert("Failed to join the meeting. Please try again.");
+            }
+        }
+
+        // Initialize when the page loads
+        window.addEventListener("DOMContentLoaded", initializeAgora);
+        
+        // Clean up when the user leaves
+        window.addEventListener("beforeunload", async () => {
+            if (localStream) {
+                localStream.audioTrack.close();
+                localStream.videoTrack.close();
+            }
+            if (screenTrack) {
+                screenTrack.close();
+            }
+            await rtcClient.leave();
+        });
+    </script>
+} 

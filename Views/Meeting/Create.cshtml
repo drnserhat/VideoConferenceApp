@@ -1,0 +1,52 @@
+@{
+    ViewData["Title"] = "Create Meeting";
+}
+
+<div class="container my-4">
+    <h1>@ViewData["Title"]</h1>
+    <hr />
+
+    <div class="row">
+        <div class="col-md-6">
+            <form asp-action="Create" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="mb-3">
+                    <label for="name" class="form-label">Meeting Name</label>
+                    <input type="text" id="name" name="name" class="form-control" required maxlength="100" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea id="description" name="description" class="form-control" maxlength="500" rows="4"></textarea>
+                    <div class="form-text">Optional - Add details about this meeting</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Create Meeting</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-6">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">About Video Meetings</h5>
+                    <p class="card-text">
+                        When you create a meeting, you'll receive a unique link that you can share with others to join.
+                    </p>
+                    <ul>
+                        <li>Meetings are secured with unique tokens</li>
+                        <li>Multiple participants can join the same meeting</li>
+                        <li>You can end a meeting at any time</li>
+                        <li>Video and audio are encrypted for privacy</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+} 

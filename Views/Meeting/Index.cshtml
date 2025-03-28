@@ -1,0 +1,63 @@
+@model IEnumerable<VideoConferenceApp.Models.Meeting>
+
+@{
+    ViewData["Title"] = "My Meetings";
+}
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>@ViewData["Title"]</h1>
+        <a asp-action="Create" class="btn btn-primary">Create New Meeting</a>
+    </div>
+
+    <div class="mb-4">
+        <a asp-action="Active" class="btn btn-outline-primary">Browse Active Meetings</a>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            <p>You haven't created any meetings yet. Click the "Create New Meeting" button to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var meeting in Model)
+            {
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 @(meeting.IsActive ? "border-success" : "border-secondary")">
+                        <div class="card-header @(meeting.IsActive ? "bg-success text-white" : "bg-secondary text-white")">
+                            <h5 class="card-title mb-0">@meeting.Name</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                @(string.IsNullOrEmpty(meeting.Description) ? "No description" : meeting.Description)
+                            </p>
+                            <p class="card-text">
+                                <small class="text-muted">Created: @meeting.CreatedAt.ToString("g")</small>
+                            </p>
+                            <p class="card-text">
+                                <span class="badge @(meeting.IsActive ? "bg-success" : "bg-secondary")">
+                                    @(meeting.IsActive ? "Active" : "Ended")
+                                </span>
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between">
+                                <a asp-action="Details" asp-route-id="@meeting.Id" class="btn btn-sm btn-outline-primary">Details</a>
+                                @if (meeting.IsActive)
+                                {
+                                    <a asp-action="Join" asp-route-id="@meeting.Id" class="btn btn-sm btn-success">Join</a>
+                                    <form asp-action="End" asp-route-id="@meeting.Id" method="post" onsubmit="return confirm('Are you sure you want to end this meeting?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">End</button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div> 
